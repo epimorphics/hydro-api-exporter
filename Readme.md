@@ -1,4 +1,4 @@
-### Hydro API Metrics Exporter
+## Hydro API Metrics Exporter
 
 Python script to read the Hydro API job queue and yeald prometheus metrics.
 
@@ -21,6 +21,14 @@ hydro-api-exporter.py [-h] [-H POSTGRES] [-D DATABASE] [-u USERNAME] [-p PASSWOR
 | `-v`                        | DEBUG     | none      | Debug verbosity |
 
 The script also supports the pre-exiting `SPRING_DATASOURCE_URL` env var.
+
+### Metrics
+
+| Name | Type | Labels | Notes |
+|------|------|--------|---------|
+| `hydro_api_queue_gauge`  | `gauge` | `requesturi`, `status` | Number of job in queue |
+| `hydro_api_queue_oldest` | `gauge` | `requesturi`, `status` | Age of oldest `InProgress` job (s) |
+| `hydro_api_queue_bucket` | `gauge` | `le`, `requesturi`, `status` | Time waiting distribution of jobs in queue. `le` buckets are in minutes  1, 10, 30, 60, 120, 180, 240, 360, +Inf |
 
 ### Release
 
