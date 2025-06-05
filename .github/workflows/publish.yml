@@ -5,7 +5,7 @@ on:
 
 jobs:
   publish:
-    uses:  "epimorphics/github-workflows/.github/workflows/publish.yml@reusable"
+    uses:  "epimorphics/github-workflows/.github/workflows/publish.yml@v2"
     secrets:
       # Repostory specific
       aws_access_key_id:     "${{ secrets.BUILD_LDS_AWS_ACCESS_KEY_ID }}"
