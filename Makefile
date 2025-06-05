@@ -3,9 +3,12 @@
 ACCOUNT?=$(shell aws sts get-caller-identity | jq -r .Account)
 REPO=${ACCOUNT}.dkr.ecr.eu-west-1.amazonaws.com
 STORE=epimorphics
-NAME=hydro-api-exporter
-TAG?= $(shell git describe --tags `git rev-list --tags --max-count=1`)
 IMAGE?=${STORE}/${NAME}:${TAG}
+NAME=hydro-api-exporter
+
+COMMIT=$(shell git rev-parse --short HEAD)
+VERSION?=$(shell git describe --tags `git rev-list --tags --max-count=1`)
+TAG?=$(shell printf '%s-%s-%08d' ${VERSION} ${COMMIT} ${GITHUB_RUN_NUMBER})
 
 default: image
 all: publish
@@ -33,6 +36,8 @@ tag:
 
 vars:
 	@echo ACCOUNT:${ACCOUNT}
-	@echo TAG:${TAG}
+	@echo COMMIT:${COMMIT}
 	@echo NAME:${NAME}
 	@echo IMAGE:${IMAGE}
+	@echo TAG:${TAG}
+	@echo VERSION:${VERSION}
