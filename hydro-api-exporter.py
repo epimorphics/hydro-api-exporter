@@ -167,7 +167,7 @@ def dbread():
   global connection
 
   while True:
-    # having the sleep at the start of the loo helps with the ingress
+    # having the sleep at the start of the loop helps with the ingress
     # transfer from one exiting pod to a new running one.
     time.sleep(args.frequency)
     try:
