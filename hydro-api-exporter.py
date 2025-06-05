@@ -203,8 +203,8 @@ if __name__ == "__main__":
   parser.add_argument('-p', '--password', dest='password', help='Password', action='store', default=os.environ.get('PASSWORD', os.environ.get('SPRING_DATASOURCE_PASSWORD', 'hydrology')))
   parser.add_argument('-P', '--port', dest='port', help='Port', action='store', default=os.environ.get('PORT', jdbc.split(':')[3].split('/')[0]))
   parser.add_argument('-f', '--frequency', dest='frequency', help='How often the queus is read in seconds', action='store', default=60, type=int)
-  parser.add_argument('-V', '--version', action='version', version='%(prog)s 2.0')
-  parser.add_argument('-v', '--verbose', dest='verbose', help='Verbose (1 or 2)', action='store', default=int(os.environ.get('DEBUG', '0')), type=int)
+  parser.add_argument('-V', '--version', action='version', version='%(prog)s v0.1.1')
+  parser.add_argument('-v', '--verbose', dest='verbose', help='Verbose=1 to enable debug logging', action='store', default=int(os.environ.get('DEBUG', '0')), type=int)
   args = parser.parse_args()
 
   # Ensure environment is sufficient
