@@ -88,6 +88,11 @@ def record(rows):
 
   buckets = [1,10,30,60,120,180,240,360] # histogram buckets (minutes)
 
+  # Purge counters
+  age.clear()
+  hist.clear()
+  jobs.clear()
+
   # initialise jobs
   jobs['Total'] = 0
   for status in ['Completed', 'Failed', 'InProgress']:
@@ -112,7 +117,7 @@ def record(rows):
     jobs[status][requesturi] += 1
     jobs[status]['Total'] += 1
 
-    
+
     if (status == 'Completed'):
       debug('requesturi:{} status:{}'.format(requesturi, status))
     else:
@@ -137,7 +142,7 @@ def record(rows):
           hist[requesturi]['+Inf'] += 1
 
         # update oldest
-        if requesturi in age: 
+        if requesturi in age:
           if (elapsed_seconds > age[requesturi]):
             age[requesturi] = elapsed_seconds
         else:
@@ -149,7 +154,7 @@ def record(rows):
       for requesturi in jobs[status]:
         if requesturi != 'Total':
           queue.labels(requesturi = requesturi, status = status).set(jobs[status][requesturi])
- 
+
   # Set the metric for the oldest
   for requesturi in age:
     oldest.labels(requesturi = requesturi, status = "InProgress").set(age[requesturi])
@@ -252,7 +257,7 @@ if __name__ == "__main__":
   )
 
   # 3. A 'fake' histogram of jobs in the queue distrubuted over time waiting
-  # Note a true histogram is a counter so every job would be counter multiple 
+  # Note a true histogram is a counter so every job would be counter multiple
   # times if one was used here.
   # Grafana (or anything else) doesn't seem to mind the other two metrics that
   # come with a true histogram. The count is already accounded to in 1. above
