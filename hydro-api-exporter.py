@@ -291,12 +291,6 @@ if __name__ == "__main__":
     ['requesturi', 'status', 'le']
     )
 
-  version_info = prometheus_client.Info(
-    'hydro_api_queue_info',
-    'Hydro API metrics version'
-    )
-  version_info({'version': version})
-
   # register the signals to be caught
   signal.signal(signal.SIGINT, terminateProcess)
   signal.signal(signal.SIGQUIT, terminateProcess)
