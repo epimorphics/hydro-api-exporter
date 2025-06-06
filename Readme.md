@@ -27,6 +27,7 @@ The script also supports the pre-exiting `SPRING_DATASOURCE_URL` env var.
 
 | Name | Type | Labels | Notes |
 |------|------|--------|---------|
+| `hydro_api_queue_info`   | `info`  | | Script version |
 | `hydro_api_queue_gauge`  | `gauge` | `requesturi`, `status` | Number of job in queue |
 | `hydro_api_queue_oldest` | `gauge` | `requesturi`, `status` | Age of oldest `InProgress` job (s) |
 | `hydro_api_queue_bucket` | `gauge` | `le`, `requesturi`, `status` | Time waiting distribution of jobs in queue. `le` buckets are in minutes  1, 10, 30, 60, 120, 180, 240, 360, +Inf |
