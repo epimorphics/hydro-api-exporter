@@ -114,6 +114,7 @@ def record(rows):
       age[requesturi] = 0
 
     if requesturi not in hist:
+      hist[requesturi] = {}
       for bucket in buckets:
         hist[requesturi][str(bucket)] = 0
       hist[requesturi]['+Inf'] = 0
@@ -134,12 +135,6 @@ def record(rows):
         if (args.verbose & 32): debug('index:{} requesturi:{} status:{} elapsed:{}'.format(index, requesturi, status, elapsed_seconds))
       else:
         if (args.verbose & 16): debug('index:{} requesturi:{} status:{} elapsed:{}'.format(index, requesturi, status, elapsed_seconds))
-        # initialise histogram
-        if requesturi not in hist:
-          hist[requesturi] = {}
-          for bucket in buckets:
-            hist[requesturi][str(bucket)] = 0
-          hist[requesturi]['+Inf'] = 0
 
         # Increment the bucket count for elapsed time, or the catch-all bucket
         if (args.verbose & 4): debug('{}: index:{} requesturi:{} starttime:{} waiting:{}s'.format(status, index, requesturi, starttime, elapsed_seconds))
