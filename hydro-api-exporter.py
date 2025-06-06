@@ -12,7 +12,7 @@ import time
 from _thread import *
 import prometheus_client
 
-version = "v0.1.4"
+version = "v0.1.5"
 
 # Log in json for fluentd
 def report(level, msg, jobs=None):
@@ -204,7 +204,7 @@ def dbread():
 
 
 def process():
-  if (args.verbose & 1): debug('Started')
+  if (args.verbose): debug('Started version {}'.format(version))
   dbconnect()
   # start prometheus metrics
   # if we wait until the DB connection is made then this is a readiness probe
