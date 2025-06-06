@@ -16,9 +16,10 @@ hydro-api-exporter.py [-h] [-H POSTGRES] [-D DATABASE] [-u USERNAME] [-p PASSWOR
 | `-u`                        | USERNAME  | hydrology | Database user |
 | `-p`                        | PASSWORD  | hydrology | Database user password |
 | `-P`                        | PORT      | none      | Database port |
+| `-Q`                        | QUEUE     | queue     | Queue table name |
 | `-f`                        | FREQUENCY | 30s       | Frequency of sampling |
 | `-V`                        | n/a       | n/a       | Display version |
-| `-v`                        | DEBUG     | none      | Debug verbosity |
+| `-v`                        | DEBUG     | none      | Debug verbosity (0-255) |
 
 The script also supports the pre-exiting `SPRING_DATASOURCE_URL` env var.
 

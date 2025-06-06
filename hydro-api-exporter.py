@@ -72,10 +72,10 @@ def dbconnect():
         connect_timeout=10
       )
     except (psycopg2.DatabaseError, Exception) as exception:
-      error('Failed to connect to database {}:{}/{} as {}: {}'.format(args.postgres, args.port, args.database, args.username, exception))
+      error('Failed to connect to database {}:{}/{} as user {}: {}'.format(args.postgres, args.port, args.database, args.username, exception))
       time.sleep(10)
 
-  log('Connected to database {}:{}/{} as {}'.format(args.postgres, args.port, args.database, args.username))
+  log('Connected to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username))
 
 
 # Real work here
@@ -89,9 +89,9 @@ def record(rows):
   buckets = [1,10,30,60,120,180,240,360] # histogram buckets (minutes)
 
   # Purge counters
-  age.clear()
-  hist.clear()
-  jobs.clear()
+# age.clear()
+# hist.clear()
+# jobs.clear()
 
   # initialise jobs
   jobs['Total'] = 0
@@ -101,13 +101,14 @@ def record(rows):
 
   # loop through the db table
   for row in rows:
-    debug(row)
+    if (args.verbose & 128): debug(row)
 
     jobs['Total'] += 1
 
-    requesturi = row[0]
-    status =     row[1]
-    starttime =  row[2]
+    index      = row[0]
+    requesturi = row[1]
+    status =     row[2]
+    starttime =  row[3]
 
     # initise the counter for a new requesturi
     if requesturi not in jobs[status]:
@@ -117,14 +118,18 @@ def record(rows):
     jobs[status][requesturi] += 1
     jobs[status]['Total'] += 1
 
-
     if (status == 'Completed'):
-      debug('requesturi:{} status:{}'.format(requesturi, status))
+      if (args.verbose & 64): debug('index:{} requesturi:{} status:{}'.format(index, requesturi, status))
     else:
       elapsed_seconds = (now - int(starttime/1000))
-      debug('requesturi:{} status:{} elapsed:{}'.format(requesturi, status, elapsed_seconds))
+      if elapsed_seconds < 0:
+        warn('Queue entry has future start time index:{} requesturi:{} status:{} starttime:{}'.format(index, requesturi, status, starttime))
+        break
 
-      if (status == 'InProgress'):
+      if (status == 'Failed'):
+        if (args.verbose & 32): debug('index:{} requesturi:{} status:{} elapsed:{}'.format(index, requesturi, status, elapsed_seconds))
+      else:
+        if (args.verbose & 16): debug('index:{} requesturi:{} status:{} elapsed:{}'.format(index, requesturi, status, elapsed_seconds))
         # initialise histogram
         if requesturi not in hist:
           hist[requesturi] = {}
@@ -133,19 +138,24 @@ def record(rows):
           hist[requesturi]['+Inf'] = 0
 
         # Increment the bucket count for elapsed time, or the catch-all bucket
+        if (args.verbose & 4): debug("{}: index:{} requesturi:{} starttime:{} waiting:{}s".format(status, index, requesturi, starttime, elapsed_seconds))
         allocated = 0
         for bucket in buckets:
-          if bucket > (elapsed_seconds*60):
+          if allocated ==0 and elapsed_seconds < (60*bucket):
             allocated = 1
-            hist[requesturi][str(bucket)] = hist[requesturi][str(bucket)] + 1
+            hist[requesturi][str(bucket)] += + 1
+            if (args.verbose & 4): debug("Histogram[{}][{}][{}] incemented to {}".format(requesturi, status, bucket, hist[requesturi][str(bucket)]))
         if allocated == 0:
           hist[requesturi]['+Inf'] += 1
+          if (args.verbose & 4): debug("Histogram[{}][{}][+Inf] incemented to {}".format(requesturi, status, hist[requesturi]['+Inf']))
 
         # update oldest
         if requesturi in age:
           if (elapsed_seconds > age[requesturi]):
+            if (args.verbose & 2): debug("Oldest[{}][{}] updated {}".format(requesturi, status, elapsed_seconds))
             age[requesturi] = elapsed_seconds
         else:
+          if (args.verbose & 2): debug("Oldest[{}][{}] set {}".format(requesturi, status, elapsed_seconds))
           age[requesturi] = elapsed_seconds
 
   # set the count metrics. Note Totals only used by the output log.
@@ -157,13 +167,17 @@ def record(rows):
 
   # Set the metric for the oldest
   for requesturi in age:
+    if (args.verbose & 2): debug("Metric oldest[{}][{}] set {}".format(requesturi, status, age[requesturi]))
     oldest.labels(requesturi = requesturi, status = "InProgress").set(age[requesturi])
 
   # Set the distribution metric
   for requesturi in hist:
+    msg = "Histogram[{}] |".format(requesturi)
     for bucket in hist[requesturi]:
-      debug("Hist: {}/{}={}".format(requesturi, bucket, hist[requesturi][bucket]))
+      msg = "{}{} ({})|".format(msg, hist[requesturi][bucket], bucket)
       inprogress.labels(le=bucket, requesturi = requesturi, status = 'InProgress').set(hist[requesturi][bucket])
+    if (args.verbose & 8):
+      debug(msg)
 
   return (jobs)
 
@@ -176,17 +190,17 @@ def dbread():
     # transfer from one exiting pod to a new running one.
     time.sleep(args.frequency)
     try:
-      debug('Reading hydri-api queue.')
+      if (args.verbose & 1): debug('Reading hydri-api queue from table ({}).'.format(args.queue))
       with connection.cursor() as cur:
-        cur.execute("select requesturi, status, startTime from queue")
+        cur.execute("select index, requesturi, status, startTime from {}".format(args.queue))
         jobs = record(cur.fetchall())
-      log('Read {} {} from hydro-api queue.'.format(jobs['Total'], "row" if (jobs['Total']==1) else "rows"), jobs)
+      log('Read {} {} from hydro-api queue({}).'.format(jobs['Total'], "row" if (jobs['Total']==1) else "rows", args.queue), jobs)
     except (psycopg2.DatabaseError, Exception) as exception:
       error(exception)
 
 
 def process():
-  debug('Started')
+  if (args.verbose & 1): debug('Started')
   dbconnect()
   # start prometheus metrics
   # if we wait until the DB connection is made then this is a readiness probe
@@ -208,6 +222,7 @@ if __name__ == "__main__":
   parser.add_argument('-p', '--password', dest='password', help='Password', action='store', default=os.environ.get('PASSWORD', os.environ.get('SPRING_DATASOURCE_PASSWORD', 'hydrology')))
   parser.add_argument('-P', '--port', dest='port', help='Port', action='store', default=os.environ.get('PORT', jdbc.split(':')[3].split('/')[0]))
   parser.add_argument('-f', '--frequency', dest='frequency', help='How often the queus is read in seconds', action='store', default=60, type=int)
+  parser.add_argument('-Q', '--queue',   dest='queue', help='The table name holding the queue', action='store', default=(os.environ.get('QUEUE', 'queue')))
   parser.add_argument('-V', '--version', action='version', version='%(prog)s v0.1.1')
   parser.add_argument('-v', '--verbose', dest='verbose', help='Verbose=1 to enable debug logging', action='store', default=int(os.environ.get('DEBUG', '0')), type=int)
   args = parser.parse_args()
@@ -232,6 +247,10 @@ if __name__ == "__main__":
 
   if args.port is None:
     error("Database port not defined.")
+    sys.exit(1)
+
+  if args.queue is None:
+    error("Queue table name not defined.")
     sys.exit(1)
 
   # We don't need Promethemus to monitor this process or the system
