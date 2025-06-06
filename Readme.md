@@ -5,7 +5,7 @@ Python script to read the Hydro API job queue and yeald prometheus metrics.
 Usage: 
 
 ```
-hydro-api-exporter.py [-h] [-H POSTGRES] [-D DATABASE] [-u USERNAME] [-p PASSWORD] [-P PORT] [-f FREQUENCY] [-V] [-v VERBOSE]
+hydro-api-exporter.py [-h] [-H POSTGRES] [-D DATABASE] [-u USERNAME] [-p PASSWORD] [-P PORT] [-Q QUEUE] [-f FREQUENCY] [-V] [-v VERBOSE]
 ```
 
 | Option                      | Env Var   | Default   | Purpose |
