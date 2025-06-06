@@ -110,9 +110,7 @@ def record(rows):
     if requesturi not in jobs[status]:
       jobs[status][requesturi] = 0
 
-    if requesturi not in age:
-      age[requesturi] = 0
-
+    # initise histogram
     if requesturi not in hist:
       hist[requesturi] = {}
       for bucket in buckets:
@@ -148,7 +146,6 @@ def record(rows):
           hist[requesturi]['+Inf'] += 1
           if (args.verbose & 4): debug('Histogram[{}][{}][+Inf] incemented to {}'.format(requesturi, status, hist[requesturi]['+Inf']))
 
-        # update oldest
         if requesturi in age:
           if (elapsed_seconds > age[requesturi]):
             if (args.verbose & 2): debug('Oldest[{}][{}] updated {}'.format(requesturi, status, elapsed_seconds))
