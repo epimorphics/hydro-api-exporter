@@ -159,19 +159,19 @@ def record(rows):
     if status != 'Total':
       for requesturi in jobs[status]:
         if requesturi != 'Total':
-          queue.labels(requesturi = requesturi, status = status).set(jobs[status][requesturi])
+          length.labels(queue = args.queue, requesturi = requesturi, status = status).set(jobs[status][requesturi])
 
   # Set the metric for the oldest
   for requesturi in age:
     if (args.verbose & 2): debug('Metric oldest[{}][{}] set {}'.format(requesturi, status, age[requesturi]))
-    oldest.labels(requesturi = requesturi, status = 'InProgress').set(age[requesturi])
+    oldest.labels(queue = args.queue, requesturi = requesturi, status = 'InProgress').set(age[requesturi])
 
   # Set the distribution metric
   for requesturi in hist:
     msg = 'Histogram[{}] |'.format(requesturi)
     for bucket in hist[requesturi]:
       msg = '{}{} ({})|'.format(msg, hist[requesturi][bucket], bucket)
-      inprogress.labels(le=bucket, requesturi = requesturi, status = 'InProgress').set(hist[requesturi][bucket])
+      inprogress.labels(le=bucket, queue = args.queue, requesturi = requesturi, status = 'InProgress').set(hist[requesturi][bucket])
     if (args.verbose & 8):
       debug(msg)
 
@@ -258,17 +258,17 @@ if __name__ == "__main__":
 
   # Define the Prometheus metrics:
   # 1. How many items in the queue by requesturi and status
-  queue = prometheus_client.Gauge(
+  length = prometheus_client.Gauge(
     'hydro_api_queue_gauge',
     'Jobs Status',
-    ['requesturi', 'status']
+    ['queue', 'requesturi', 'status']
     )
 
   # 2. The oldest by requesturi (and status) but only relevant to 'InProgress'
   oldest = prometheus_client.Gauge(
     'hydro_api_queue_oldest',
     'Longest time a job is waiting in queue',
-    ['requesturi', 'status'],
+    ['queue', 'requesturi', 'status'],
     )
 
   # 3. A 'fake' histogram of jobs in the queue distrubuted over time waiting
@@ -280,7 +280,7 @@ if __name__ == "__main__":
   inprogress = prometheus_client.Gauge(
     'hydro_api_queue_bucket',
     'Hydro API job queue distribution',
-    ['requesturi', 'status', 'le']
+    ['queue', 'requesturi', 'status', 'le']
     )
 
   # register the signals to be caught
