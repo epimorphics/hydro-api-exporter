@@ -83,21 +83,33 @@ def dbconnect():
 def record(rows):
   now = int(time.time()) # Don't need faction of a second precision
 
-  age = {}       # Age of oldest InProgress job by requesturi
-  hist = {}      # Distribution of InProgress jobs by requesturi
+  age = {}       # Age of oldest InProgress/Pending job by requesturi
+  age['InProgress'] = {} # Age of oldest InProgress job by requesturi
+  age['Pending'] = {}    # Age of oldest Pending job by requesturi
+  hist = {}      # Distribution of jobs by status/requesturi
+  hist['InProgress'] = {} # Distribution of InProgress jobs by requesturi
+  hist['Pending'] = {}    # Distribution of Pending jobs by requesturi
   jobs = {}      # Count of jobs by requesturi and status
 
   buckets = [1,10,30,60,120,180,240,360] # histogram buckets (minutes)
 
   # initialise jobs
   jobs['Total'] = 0
-  for status in ['Completed', 'Failed', 'InProgress']:
+  for status in ['Completed', 'Failed', 'InProgress', 'Pending']:
     jobs[status] = {}
     jobs[status]['Total'] = 0
 
   # loop through the db table
   for row in rows:
     if (args.verbose & 128): debug(row)
+
+    # initise histogram
+    for status in ['InProgress', 'Pending']:
+      if requesturi not in hist[status]:
+        hist[status][requesturi] = {}
+        for bucket in buckets:
+          hist[status][requesturi][str(bucket)] = 0
+        hist[status][requesturi]['+Inf'] = 0
 
     jobs['Total'] += 1
 
@@ -109,13 +121,6 @@ def record(rows):
     # initise the counters for a new requesturi
     if requesturi not in jobs[status]:
       jobs[status][requesturi] = 0
-
-    # initise histogram
-    if requesturi not in hist:
-      hist[requesturi] = {}
-      for bucket in buckets:
-        hist[requesturi][str(bucket)] = 0
-      hist[requesturi]['+Inf'] = 0
 
     # increment job counters
     jobs[status][requesturi] += 1
@@ -140,19 +145,19 @@ def record(rows):
         for bucket in buckets:
           if allocated ==0 and elapsed_seconds < (60*bucket):
             allocated = 1
-            hist[requesturi][str(bucket)] += 1
-            if (args.verbose & 4): debug('Histogram[{}][{}][{}] incemented to {}'.format(requesturi, status, bucket, hist[requesturi][str(bucket)]))
+            hist[status][requesturi][str(bucket)] += 1
+            if (args.verbose & 4): debug('Histogram[{}][{}][{}] incemented to {}'.format(requesturi, status, bucket, hist[status][requesturi][str(bucket)]))
         if allocated == 0:
-          hist[requesturi]['+Inf'] += 1
-          if (args.verbose & 4): debug('Histogram[{}][{}][+Inf] incemented to {}'.format(requesturi, status, hist[requesturi]['+Inf']))
+          hist[status][requesturi]['+Inf'] += 1
+          if (args.verbose & 4): debug('Histogram[{}][{}][+Inf] incemented to {}'.format(requesturi, status, hist[status][requesturi]['+Inf']))
 
-        if requesturi in age:
-          if (elapsed_seconds > age[requesturi]):
+        if requesturi in age[status]:
+          if (elapsed_seconds > age[status][requesturi]):
             if (args.verbose & 2): debug('Oldest[{}][{}] updated {}'.format(requesturi, status, elapsed_seconds))
-            age[requesturi] = elapsed_seconds
+            age[status][requesturi] = elapsed_seconds
         else:
           if (args.verbose & 2): debug('Oldest[{}][{}] set {}'.format(requesturi, status, elapsed_seconds))
-          age[requesturi] = elapsed_seconds
+          age[status][requesturi] = elapsed_seconds
 
   # set the count metrics. Note Totals only used by the output log.
   for status in jobs:
@@ -162,18 +167,20 @@ def record(rows):
           length.labels(queue = args.queue, requesturi = requesturi, status = status).set(jobs[status][requesturi])
 
   # Set the metric for the oldest
-  for requesturi in age:
-    if (args.verbose & 2): debug('Metric oldest[{}][{}] set {}'.format(requesturi, status, age[requesturi]))
-    oldest.labels(queue = args.queue, requesturi = requesturi, status = 'InProgress').set(age[requesturi])
+  for status in ['InProgress', 'Pending']:
+    for requesturi in age[status]:
+      if (args.verbose & 2): debug('Metric oldest[{}][{}] set {}'.format(requesturi, status, age[status][requesturi]))
+      oldest.labels(queue = args.queue, requesturi = requesturi, status = status).set(age[status][requesturi])
 
   # Set the distribution metric
-  for requesturi in hist:
-    msg = 'Histogram[{}] |'.format(requesturi)
-    for bucket in hist[requesturi]:
-      msg = '{}{} ({})|'.format(msg, hist[requesturi][bucket], bucket)
-      inprogress.labels(le=bucket, queue = args.queue, requesturi = requesturi, status = 'InProgress').set(hist[requesturi][bucket])
-    if (args.verbose & 8):
-      debug(msg)
+  for status in ['InProgress', 'Pending']:
+    for requesturi in hist[status]:
+      msg = 'Histogram[{}][{}] |'.format(status, requesturi)
+      for bucket in hist[status][requesturi]:
+        msg = '{}{} ({})|'.format(msg, hist[status][requesturi][bucket], bucket)
+        histogram.labels(le=bucket, queue = args.queue, requesturi = requesturi, status = status).set(hist[status][requesturi][bucket])
+      if (args.verbose & 8):
+        debug(msg)
 
   return (jobs)
 
@@ -264,7 +271,7 @@ if __name__ == "__main__":
     ['queue', 'requesturi', 'status']
     )
 
-  # 2. The oldest by requesturi (and status) but only relevant to 'InProgress'
+  # 2. The oldest by requesturi (and status) but only relevant to 'InProgress' & 'Pending'
   oldest = prometheus_client.Gauge(
     'hydro_api_queue_oldest',
     'Longest time a job is waiting in queue',
@@ -277,7 +284,7 @@ if __name__ == "__main__":
   # Grafana (or anything else) doesn't seem to mind the other two metrics that
   # come with a true histogram. The count is already accounded to in 1. above
   # and the total sum has no useful meaning here.
-  inprogress = prometheus_client.Gauge(
+  histogram = prometheus_client.Gauge(
     'hydro_api_queue_bucket',
     'Hydro API job queue distribution',
     ['queue', 'requesturi', 'status', 'le']
