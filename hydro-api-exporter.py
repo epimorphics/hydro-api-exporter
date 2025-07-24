@@ -72,8 +72,8 @@ def dbconnect():
         port=args.port,
         connect_timeout=10
       )
-    except (psycopg2.DatabaseError, Exception) as exception:
-      error('Failed to connect to database {}:{}/{} as user {}: {}'.format(args.postgres, args.port, args.database, args.username, exception))
+    except Exception as exception:
+      error('Failed to connect to database {}:{}/{} as user {}: {}'.format(args.postgres, args.port, args.database, args.username, repr(exception)))
       time.sleep(10)
 
   log('Connected to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username))
@@ -191,8 +191,8 @@ def dbread():
         cur.execute('select index, requesturi, status, startTime from {}'.format(args.queue))
         jobs = record(cur.fetchall())
       log('Read {} {} from hydro-api queue({}).'.format(jobs['Total'], "row" if (jobs['Total']==1) else "rows", args.queue), jobs)
-    except (psycopg2.DatabaseError, Exception) as exception:
-      error(exception)
+    except Exception as exception:
+      error('Failed to read from table {}: {}'.format(args.queue, repr(exception)))
 
 
 def process():
