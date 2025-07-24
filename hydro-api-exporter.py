@@ -103,20 +103,20 @@ def record(rows):
   for row in rows:
     if (args.verbose & 128): debug(row)
 
-    # initise histogram
-    for status in ['InProgress', 'Pending']:
-      if requesturi not in hist[status]:
-        hist[status][requesturi] = {}
-        for bucket in buckets:
-          hist[status][requesturi][str(bucket)] = 0
-        hist[status][requesturi]['+Inf'] = 0
-
     jobs['Total'] += 1
 
     index      = row[0]
     requesturi = row[1]
     status =     row[2]
     starttime =  row[3]
+
+    # initise histogram
+    for s in ['InProgress', 'Pending']:
+      if requesturi not in hist[s]:
+        hist[s][requesturi] = {}
+        for bucket in buckets:
+          hist[s][requesturi][str(bucket)] = 0
+        hist[s][requesturi]['+Inf'] = 0
 
     # initise the counters for a new requesturi
     if requesturi not in jobs[status]:
