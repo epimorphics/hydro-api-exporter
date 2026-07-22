@@ -11,11 +11,12 @@ import psycopg2
 import signal
 import sys
 import time
+import traceback
 
 from _thread import *
 import prometheus_client
 
-version = "v0.2.0"
+version = "v0.2.1"
 
 
 def error(msg, error=None):
@@ -28,15 +29,17 @@ def log(msg, jobs=None):
     for status in jobs:
       if status != 'Total':
         event[status] = str(jobs[status]['Total'])
-  logger.info(msg, extra=dump.json(event))
+    logger.info(msg, extra=json.dump(event))
+  else:
+    logger.info(msg)
 
 
 # Signal Catch, shutdown
 def terminateProcess(signalNumber, frame):
-  logger.notice('Received signal {}.'.format(signalNumber))
+  logger.notice('Received signal {}'.format(signalNumber))
   if connection:
     connection.close()
-  logger.notice('Connection closed. Terminating.')
+  log('Connection closed. Terminating')
   sys.exit()
 
 
@@ -57,6 +60,7 @@ def dbconnect():
       )
     except Exception as exception:
       error('Failed to connect to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username), repr(exception))
+      if (args.verbose & 128): logger.debug('Password:{}'.format(args.password))
       time.sleep(10)
 
   logger.notice('Connected to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username))
@@ -85,9 +89,12 @@ def record(rows):
     jobs[status] = {}
     jobs[status]['Total'] = 0
 
+  print('Read {} rows from hydro-api queue({}).'.format(len(rows), args.queue))
+
   # loop through the db table
   for row in rows:
     if (args.verbose & 128): logger.debug(row)
+    print('{}: index:{} requesturi:{} status:{}'.format(jobs['Total'], row[0], row[1], row[2]))
 
     jobs['Total'] += 1
 
@@ -187,11 +194,11 @@ def dbread():
         jobs = record(cur.fetchall())
       log('Read {} {} from hydro-api queue({}).'.format(jobs['Total'], "row" if (jobs['Total']==1) else "rows", args.queue), jobs)
     except Exception as exception:
-      error('Failed to read from table {}'.format(args.queue), repr(exception))
+      error('Failed to read from table {}'.format(args.queue), traceback.format_exc())
 
 
 def process():
-  if (args.verbose): logger.debug('Started version {}'.format(version))
+  if (args.verbose): logger.notice('Started version {}'.format(version))
   dbconnect()
   # start prometheus metrics
   # if we wait until the DB connection is made then this is a readiness probe
