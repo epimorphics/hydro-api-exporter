@@ -65,7 +65,7 @@ def dbconnect():
       if (args.verbose & 128): logger.debug('Password:{}'.format(args.password))
       time.sleep(10)
 
-  logger.notice('Connected to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username))
+  logger.info('Connected to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username))
 
 
 # Real work here
