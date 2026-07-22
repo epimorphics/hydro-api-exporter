@@ -6,12 +6,17 @@ STORE=epimorphics
 IMAGE?=${STORE}/${NAME}:${TAG}
 NAME=hydro-api-exporter
 
+EPILOG_VERSION?=v0.0.3
+
 COMMIT=$(shell git rev-parse --short HEAD)
 VERSION?=$(shell git describe --tags `git rev-list --tags --max-count=1`)
 TAG?=$(shell printf '%s-%s-%08d' ${VERSION} ${COMMIT} ${GITHUB_RUN_NUMBER})
 
 default: image
 all: publish
+
+epilog.py:
+	@curl --no-progress-meter -L https://github.com/epimorphics/python-epilog/releases/download/${EPILOG_VERSION}/epilog.py > epilog.py
 
 clean:
 	@-docker stop ${NAME} 2> /dev/null

@@ -1,5 +1,8 @@
 #! /usr/bin/python3
 
+from epilog import EpiLog
+logger = EpiLog(__name__)
+
 import argparse
 import datetime
 import json
@@ -12,48 +15,28 @@ import time
 from _thread import *
 import prometheus_client
 
-version = "v0.1.5"
+version = "v0.2.0"
 
-# Log in json for fluentd
-def report(level, msg, jobs=None):
+
+def error(msg, error=None):
+  logger.error(msg, extra={'error': error})
+
+
+def log(msg, jobs=None):
   event = {}
-  event['timestamp'] = rfc3339(int(time.time()))
-  event['level'] = level
-  event['message'] = msg
   if jobs:
     for status in jobs:
       if status != 'Total':
         event[status] = str(jobs[status]['Total'])
-  print(json.dumps(event))
-
-# Format a epoach seconds time to log format time
-def rfc3339(epoch):
-  return datetime.datetime.fromtimestamp(epoch).isoformat('T') + 'Z'
-
-
-def debug(msg):
-  if (args.verbose > 0):
-    report('debug', msg)
-
-
-def log(msg, jobs=None):
-  report('info', msg, jobs)
-
-
-def warn(msg):
-  report('warn', msg)
-
-
-def error(msg):
-  report('error', msg)
+  logger.info(msg, extra=dump.json(event))
 
 
 # Signal Catch, shutdown
 def terminateProcess(signalNumber, frame):
-  log('Received signal {}.'.format(signalNumber))
+  logger.notice('Received signal {}.'.format(signalNumber))
   if connection:
     connection.close()
-  log('Connection closed. Terminating.')
+  logger.notice('Connection closed. Terminating.')
   sys.exit()
 
 
@@ -73,10 +56,10 @@ def dbconnect():
         connect_timeout=10
       )
     except Exception as exception:
-      error('Failed to connect to database {}:{}/{} as user {}: {}'.format(args.postgres, args.port, args.database, args.username, repr(exception)))
+      error('Failed to connect to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username), repr(exception))
       time.sleep(10)
 
-  log('Connected to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username))
+  logger.notice('Connected to database {}:{}/{} as user {}'.format(args.postgres, args.port, args.database, args.username))
 
 
 # Real work here
@@ -91,7 +74,10 @@ def record(rows):
   hist['Pending'] = {}    # Distribution of Pending jobs by requesturi
   jobs = {}      # Count of jobs by requesturi and status
 
-  buckets = [1,10,30,60,120,180,240,360] # histogram buckets (minutes)
+  factor['InProgress'] = 1
+  buckets['InProgress'] = [1,2,4,8,16,32,64,128] # histogram buckets (seconds)
+  factor['Pending'] = 60
+  buckets['Pending'] = [1,10,30,60,120,180,240,360] # histogram buckets (minutes)
 
   # initialise jobs
   jobs['Total'] = 0
@@ -101,7 +87,7 @@ def record(rows):
 
   # loop through the db table
   for row in rows:
-    if (args.verbose & 128): debug(row)
+    if (args.verbose & 128): logger.debug(row)
 
     jobs['Total'] += 1
 
@@ -114,7 +100,7 @@ def record(rows):
     for s in ['InProgress', 'Pending']:
       if requesturi not in hist[s]:
         hist[s][requesturi] = {}
-        for bucket in buckets:
+        for bucket in buckets[s]:
           hist[s][requesturi][str(bucket)] = 0
         hist[s][requesturi]['+Inf'] = 0
 
@@ -127,36 +113,38 @@ def record(rows):
     jobs[status]['Total'] += 1
 
     if (status == 'Completed'):
-      if (args.verbose & 64): debug('index:{} requesturi:{} status:{}'.format(index, requesturi, status))
+      if (args.verbose & 64): logger.debug('index:{} requesturi:{} status:{}'.format(index, requesturi, status))
+    elif starttime is None:
+      logger.warn('Queue entry has no start time index:{} requesturi:{} status:{}'.format(index, requesturi, status))
     else:
       elapsed_seconds = (now - int(starttime/1000))
       if elapsed_seconds < 0:
-        warn('Queue entry has future start time index:{} requesturi:{} status:{} starttime:{}'.format(index, requesturi, status, starttime))
+        logger.warn('Queue entry has future start time index:{} requesturi:{} status:{} starttime:{}'.format(index, requesturi, status, starttime))
         break
 
       if (status == 'Failed'):
-        if (args.verbose & 32): debug('index:{} requesturi:{} status:{} elapsed:{}'.format(index, requesturi, status, elapsed_seconds))
+        if (args.verbose & 32): logger.debug('index:{} requesturi:{} status:{} elapsed:{}'.format(index, requesturi, status, elapsed_seconds))
       else:
-        if (args.verbose & 16): debug('index:{} requesturi:{} status:{} elapsed:{}'.format(index, requesturi, status, elapsed_seconds))
+        if (args.verbose & 16): logger.debug('index:{} requesturi:{} status:{} elapsed:{}'.format(index, requesturi, status, elapsed_seconds))
 
         # Increment the bucket count for elapsed time, or the catch-all bucket
-        if (args.verbose & 4): debug('{}: index:{} requesturi:{} starttime:{} waiting:{}s'.format(status, index, requesturi, starttime, elapsed_seconds))
+        if (args.verbose & 4): logger.debug('{}: index:{} requesturi:{} starttime:{} waiting:{}s'.format(status, index, requesturi, starttime, elapsed_seconds))
         allocated = 0
-        for bucket in buckets:
-          if allocated ==0 and elapsed_seconds < (60*bucket):
+        for bucket in buckets[status]:
+          if allocated ==0 and elapsed_seconds < (factor[status]*bucket):
             allocated = 1
             hist[status][requesturi][str(bucket)] += 1
-            if (args.verbose & 4): debug('Histogram[{}][{}][{}] incemented to {}'.format(requesturi, status, bucket, hist[status][requesturi][str(bucket)]))
+            if (args.verbose & 4): logger.debug('Histogram[{}][{}][{}] incemented to {}'.format(requesturi, status, bucket, hist[status][requesturi][str(bucket)]))
         if allocated == 0:
           hist[status][requesturi]['+Inf'] += 1
-          if (args.verbose & 4): debug('Histogram[{}][{}][+Inf] incemented to {}'.format(requesturi, status, hist[status][requesturi]['+Inf']))
+          if (args.verbose & 4): logger.debug('Histogram[{}][{}][+Inf] incemented to {}'.format(requesturi, status, hist[status][requesturi]['+Inf']))
 
         if requesturi in age[status]:
           if (elapsed_seconds > age[status][requesturi]):
-            if (args.verbose & 2): debug('Oldest[{}][{}] updated {}'.format(requesturi, status, elapsed_seconds))
+            if (args.verbose & 2): logger.debug('Oldest[{}][{}] updated {}'.format(requesturi, status, elapsed_seconds))
             age[status][requesturi] = elapsed_seconds
         else:
-          if (args.verbose & 2): debug('Oldest[{}][{}] set {}'.format(requesturi, status, elapsed_seconds))
+          if (args.verbose & 2): logger.debug('Oldest[{}][{}] set {}'.format(requesturi, status, elapsed_seconds))
           age[status][requesturi] = elapsed_seconds
 
   # set the count metrics. Note Totals only used by the output log.
@@ -169,7 +157,7 @@ def record(rows):
   # Set the metric for the oldest
   for status in ['InProgress', 'Pending']:
     for requesturi in age[status]:
-      if (args.verbose & 2): debug('Metric oldest[{}][{}] set {}'.format(requesturi, status, age[status][requesturi]))
+      if (args.verbose & 2): logger.debug('Metric oldest[{}][{}] set {}'.format(requesturi, status, age[status][requesturi]))
       oldest.labels(queue = args.queue, requesturi = requesturi, status = status).set(age[status][requesturi])
 
   # Set the distribution metric
@@ -180,7 +168,7 @@ def record(rows):
         msg = '{}{} ({})|'.format(msg, hist[status][requesturi][bucket], bucket)
         histogram.labels(le=bucket, queue = args.queue, requesturi = requesturi, status = status).set(hist[status][requesturi][bucket])
       if (args.verbose & 8):
-        debug(msg)
+        logger.debug(msg)
 
   return (jobs)
 
@@ -193,17 +181,17 @@ def dbread():
     # transfer from one exiting pod to a new running one.
     time.sleep(args.frequency)
     try:
-      if (args.verbose & 1): debug('Reading hydri-api queue from table ({}).'.format(args.queue))
+      if (args.verbose & 1): logger.debug('Reading hydri-api queue from table ({}).'.format(args.queue))
       with connection.cursor() as cur:
         cur.execute('select index, requesturi, status, startTime from {}'.format(args.queue))
         jobs = record(cur.fetchall())
       log('Read {} {} from hydro-api queue({}).'.format(jobs['Total'], "row" if (jobs['Total']==1) else "rows", args.queue), jobs)
     except Exception as exception:
-      error('Failed to read from table {}: {}'.format(args.queue, repr(exception)))
+      error('Failed to read from table {}'.format(args.queue), repr(exception))
 
 
 def process():
-  if (args.verbose): debug('Started version {}'.format(version))
+  if (args.verbose): logger.debug('Started version {}'.format(version))
   dbconnect()
   # start prometheus metrics
   # if we wait until the DB connection is made then this is a readiness probe
@@ -232,28 +220,28 @@ if __name__ == "__main__":
 
   # Ensure environment is sufficient
   # A new pod will start giving chance to fix the env.
-  if args.postgres is None:
-    error('Location of database not defined.')
+  if args.postgres in (None, ''):
+    error('Failed to start', 'Location of database not defined')
     sys.exit(1)
 
-  if args.database is None:
-    error('Name of database not defined.')
+  if args.database in (None, ''):
+    error('Failed to start', 'Name of database not defined')
     sys.exit(1)
 
-  if args.username is None:
-    error('Database username of database not defined.')
+  if args.username in (None, ''):
+    error('Failed to start', 'Database username of database not defined')
     sys.exit(1)
 
-  if args.password is None:
-    error('Database password not defined.')
+  if args.password in (None, ''):
+    error('Failed to start', 'Database password not defined')
     sys.exit(1)
 
-  if args.port is None:
-    error('Database port not defined.')
+  if args.port in (None, ''):
+    error('Failed to start', 'Database port not defined')
     sys.exit(1)
 
   if args.queue is None:
-    error('Queue table name not defined.')
+    error('Failed to start', 'Queue table name not defined')
     sys.exit(1)
 
   # We don't need Promethemus to monitor this process or the system
@@ -297,3 +285,5 @@ if __name__ == "__main__":
 
   # Now go do some work
   process()
+
+# vim: set ts=2 sw=2 et:
