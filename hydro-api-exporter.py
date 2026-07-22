@@ -30,8 +30,9 @@ def log(msg, jobs=None):
       if status != 'Total':
         event[status] = str(jobs[status]['Total'])
     logger.info(msg)
-#   print(json.dumps(event))
-    logger.info(msg, extra=json.dumps(event))
+    print(json.dumps(event))
+    foo = json.dumps(event)
+    logger.info(msg, extra=foo)
   else:
     logger.info(msg)
 
