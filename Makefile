@@ -24,7 +24,7 @@ clean:
 	@-docker rmi -f ${REPO}/${IMAGE} ${IMAGE}
 	@docker image prune -f
 
-image:
+image: epilog.py
 	@docker build --tag ${IMAGE} .
 	
 publish: image
