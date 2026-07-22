@@ -29,7 +29,9 @@ def log(msg, jobs=None):
     for status in jobs:
       if status != 'Total':
         event[status] = str(jobs[status]['Total'])
-    logger.info(msg, extra=json.dump(event))
+    logger.info(msg)
+    print(json.dumps(event))
+#   logger.info(msg, extra=json.dump(event))
   else:
     logger.info(msg)
 
@@ -92,12 +94,9 @@ def record(rows):
     jobs[status] = {}
     jobs[status]['Total'] = 0
 
-  print('Read {} rows from hydro-api queue({}).'.format(len(rows), args.queue))
-
   # loop through the db table
   for row in rows:
     if (args.verbose & 128): logger.debug(row)
-    print('{}: index:{} requesturi:{} status:{}'.format(jobs['Total'], row[0], row[1], row[2]))
 
     jobs['Total'] += 1
 
