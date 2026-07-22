@@ -16,6 +16,7 @@ default: image
 all: publish
 
 epilog.py:
+	@echo "Downloading epilog.py version ${EPILOG_VERSION}"
 	@curl --no-progress-meter -L https://github.com/epimorphics/python-epilog/releases/download/${EPILOG_VERSION}/epilog.py > epilog.py
 
 clean:
@@ -24,7 +25,7 @@ clean:
 	@-docker rmi -f ${REPO}/${IMAGE} ${IMAGE}
 	@docker image prune -f
 
-image: epilog.py
+image: vers epilog.py
 	@docker build --tag ${IMAGE} .
 	
 publish: image
