@@ -30,8 +30,8 @@ def log(msg, jobs=None):
       if status != 'Total':
         event[status] = str(jobs[status]['Total'])
     logger.info(msg)
-    print(json.dumps(event))
-#   logger.info(msg, extra=json.dump(event))
+#   print(json.dumps(event))
+    logger.info(msg, extra=json.dumps(event))
   else:
     logger.info(msg)
 
@@ -96,8 +96,6 @@ def record(rows):
 
   # loop through the db table
   for row in rows:
-    if (args.verbose & 128): logger.debug(row)
-
     jobs['Total'] += 1
 
     index      = row[0]
