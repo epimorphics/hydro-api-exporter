@@ -23,8 +23,6 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
       
       - uses: actions/checkout@v7
-        with:
-          fetch-tags: true
 
       - name: Build
         run: make image
