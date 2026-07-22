@@ -16,7 +16,7 @@ import traceback
 from _thread import *
 import prometheus_client
 
-version = "v0.2.1"
+version = 'v0.2.2'
 
 
 def error(msg, error=None):
@@ -24,15 +24,16 @@ def error(msg, error=None):
 
 
 def log(msg, jobs=None):
-  event = {}
+  extra = '' 
   if jobs:
     for status in jobs:
       if status != 'Total':
-        event[status] = str(jobs[status]['Total'])
+        if extra == '':
+          extra = '"{}":"{}"'.format(status, str(jobs[status]['Total']))
+        else:
+          extra = extra + ', "{}":"{}"'.format(status, str(jobs[status]['Total']))
     logger.info(msg)
-    print(json.dumps(event))
-    foo = json.dumps(event)
-    logger.info(msg, extra=foo)
+    logger.info(msg, extra=extra)
   else:
     logger.info(msg)
 
