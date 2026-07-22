@@ -78,6 +78,9 @@ def record(rows):
   hist['Pending'] = {}    # Distribution of Pending jobs by requesturi
   jobs = {}      # Count of jobs by requesturi and status
 
+  factor = {}    # Factor to convert bucket to seconds
+  buckets = {}   # Buckets for histogram
+
   factor['InProgress'] = 1
   buckets['InProgress'] = [1,2,4,8,16,32,64,128] # histogram buckets (seconds)
   factor['Pending'] = 60
