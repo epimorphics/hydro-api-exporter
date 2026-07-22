@@ -25,7 +25,7 @@ clean:
 	@-docker rmi -f ${REPO}/${IMAGE} ${IMAGE}
 	@docker image prune -f
 
-image: vers epilog.py
+image: vars epilog.py
 	@docker build --tag ${IMAGE} .
 	
 publish: image
