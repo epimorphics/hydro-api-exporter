@@ -16,7 +16,7 @@ import traceback
 from _thread import *
 import prometheus_client
 
-version = 'v0.2.2'
+version = 'v0.2.4'
 
 
 def error(msg, error=None):
@@ -188,11 +188,11 @@ def dbread():
     # transfer from one exiting pod to a new running one.
     time.sleep(args.frequency)
     try:
-      if (args.verbose & 1): logger.debug('Reading hydri-api queue from table ({}).'.format(args.queue))
+      if (args.verbose & 1): logger.debug('Reading hydri-api queue from table ({})'.format(args.queue))
       with connection.cursor() as cur:
         cur.execute('select index, requesturi, status, startTime from {}'.format(args.queue))
         jobs = record(cur.fetchall())
-      log('Read {} {} from hydro-api queue({}).'.format(jobs['Total'], "row" if (jobs['Total']==1) else "rows", args.queue), jobs)
+      log('Read {} {} from hydro-api queue({})'.format(jobs['Total'], "row" if (jobs['Total']==1) else "rows", args.queue), jobs)
     except Exception as exception:
       error('Failed to read from table {}'.format(args.queue), traceback.format_exc())
 
