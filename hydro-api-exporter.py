@@ -24,16 +24,12 @@ def error(msg, error=None):
 
 
 def log(msg, jobs=None):
-  extra = '' 
+  extra = {}
   if jobs:
     for status in jobs:
       if status != 'Total':
-        if extra == '':
-          extra = '"{}":"{}"'.format(status, str(jobs[status]['Total']))
-        else:
-          extra = extra + ', "{}":"{}"'.format(status, str(jobs[status]['Total']))
+        extra[status] = str(jobs[status]['Total'])
     logger.info(msg)
-    logger.info(msg, extra=extra)
   else:
     logger.info(msg)
 
