@@ -29,7 +29,9 @@ def log(msg, jobs=None):
     for status in jobs:
       if status != 'Total':
         extra[status] = str(jobs[status]['Total'])
-    logger.info(msg)
+
+  if extra:
+    logger.info(msg, extra=extra)
   else:
     logger.info(msg)
 
