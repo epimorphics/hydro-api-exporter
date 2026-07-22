@@ -9,8 +9,7 @@ NAME=hydro-api-exporter
 EPILOG_VERSION?=v0.0.3
 
 COMMIT=$(shell git rev-parse --short HEAD)
-#VERSION?=$(shell git describe --tags --abbrev=0)
-VERSION?=v0.2.2
+VERSION?=$(shell git describe --tags --abbrev=0)
 TAG?=$(shell printf '%s-%s-%08d' ${VERSION} ${COMMIT} ${GITHUB_RUN_NUMBER})
 
 default: image
