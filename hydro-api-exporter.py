@@ -16,7 +16,7 @@ import traceback
 from _thread import *
 import prometheus_client
 
-version = 'v0.2.4'
+version = 'v0.2.5'
 
 
 def error(msg, error=None):
@@ -194,6 +194,7 @@ def dbread():
         jobs = record(cur.fetchall())
       log('Read {} {} from hydro-api queue({})'.format(jobs['Total'], "row" if (jobs['Total']==1) else "rows", args.queue), jobs)
     except Exception as exception:
+      error_count.labels(queue=args.queue).inc()
       error('Failed to read from table {}'.format(args.queue), traceback.format_exc())
 
 
@@ -283,6 +284,13 @@ if __name__ == "__main__":
     'hydro_api_queue_bucket',
     'Hydro API job queue distribution',
     ['queue', 'requesturi', 'status', 'le']
+    )
+
+  # 4. Error counter for the number of errors encountered while reading the queue
+  error_count = prometheus_client.Counter(
+    'hydro_api_queue_error_count',
+    'Number of errors encountered while reading the queue table',
+    ['queue']
     )
 
   # register the signals to be caught

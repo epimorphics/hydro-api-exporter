@@ -6,7 +6,7 @@ STORE=epimorphics
 IMAGE?=${STORE}/${NAME}:${TAG}
 NAME=hydro-api-exporter
 
-EPILOG_VERSION?=v0.0.3
+EPILOG_VERSION?=v0.0.4
 
 COMMIT=$(shell git rev-parse --short HEAD)
 VERSION?=$(shell git describe --tags --abbrev=0)
@@ -24,6 +24,7 @@ clean:
 	@-docekr rm ${NAME} 2> /dev/null
 	@-docker rmi -f ${REPO}/${IMAGE} ${IMAGE}
 	@docker image prune -f
+	@rm -f epilog.py
 
 image: vars epilog.py
 	@docker build --tag ${IMAGE} .
@@ -35,7 +36,15 @@ publish: image
 run:
 	@-docker stop ${NAME} 2> /dev/null
 	@-docker rm ${NAME} 2> /dev/null
-	@docker run -p 9898:9898 --name ${NAME} ${IMAGE}
+	@docker run -e DATABASE=$${DATABASE:-hydrology} \
+		-e DEBUG=$${DEBUG:-0} \
+		-e LOG_LEVEL=$${LOG_LEVEL:-info}\
+		-e LOG_FORMAT=$${LOG_FORMAT:-json} \
+		-e POSTGRES=$${POSTGRES:-172.17.0.1} \
+		-e PASSWORD=$${PASSWORD:-undef} \
+		-e PORT=$${PORT:-5432} \
+		-e QUEUE=$${QUEUE:-queue} \
+		-p 9898:9898 --rm --name ${NAME} ${IMAGE}
 
 tag:
 	@echo ${TAG}
