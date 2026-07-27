@@ -3,6 +3,13 @@
 from epilog import EpiLog
 logger = EpiLog(__name__)
 
+import warnings
+
+def warn(message, category, filename, lineno, file=None, line=None):
+  logger.warning('{}, {} line {}'.format(message, filename, lineno), extra={'category': category.__name__})
+
+warnings.showwarning = warn
+
 import argparse
 import datetime
 import json
@@ -16,7 +23,7 @@ import traceback
 from _thread import *
 import prometheus_client
 
-version = 'v0.2.5'
+version = 'v0.2.6'
 
 
 def error(msg, error=None):
@@ -122,11 +129,11 @@ def record(rows):
     if (status == 'Completed'):
       if (args.verbose & 64): logger.debug('index:{} requesturi:{} status:{}'.format(index, requesturi, status))
     elif starttime is None:
-      logger.warn('Queue entry has no start time index:{} requesturi:{} status:{}'.format(index, requesturi, status))
+      logger.warning('Queue entry has no start time index:{} requesturi:{} status:{}'.format(index, requesturi, status))
     else:
       elapsed_seconds = (now - int(starttime/1000))
       if elapsed_seconds < 0:
-        logger.warn('Queue entry has future start time index:{} requesturi:{} status:{} starttime:{}'.format(index, requesturi, status, starttime))
+        logger.warning('Queue entry has future start time index:{} requesturi:{} status:{} starttime:{}'.format(index, requesturi, status, starttime))
         break
 
       if (status == 'Failed'):
