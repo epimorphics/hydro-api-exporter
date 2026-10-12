@@ -23,7 +23,7 @@ import traceback
 from _thread import *
 import prometheus_client
 
-version = 'v0.2.6'
+version = 'v0.3.0'
 
 
 def error(msg, error=None):
@@ -107,8 +107,13 @@ def record(rows):
 
     index      = row[0]
     requesturi = row[1]
-    status =     row[2]
-    starttime =  row[3]
+    status     = row[2]
+    starttime  = row[3]
+
+    for s in ['Completed', 'Failed', 'InProgress', 'Pending']:
+    # initise the counters for a new requesturi
+      if requesturi not in jobs[s]:
+        jobs[s][requesturi] = 0
 
     # initise histogram
     for s in ['InProgress', 'Pending']:
@@ -117,10 +122,6 @@ def record(rows):
         for bucket in buckets[s]:
           hist[s][requesturi][str(bucket)] = 0
         hist[s][requesturi]['+Inf'] = 0
-
-    # initise the counters for a new requesturi
-    if requesturi not in jobs[status]:
-      jobs[status][requesturi] = 0
 
     # increment job counters
     jobs[status][requesturi] += 1
